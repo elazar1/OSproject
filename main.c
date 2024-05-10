@@ -14,15 +14,16 @@
 
 typedef struct {
     char name[256]; // Name of file or directory
+    char path[512]; // Full path of file or directory
     time_t last_modified; // Last modified timestamp
     mode_t permissions; // File permissions
-    char path[512];
+    // Add other metadata fields as needed
 } Metadata;
 
 // Function prototypes
 void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir);
 void monitorChanges(const char* directory, const char* inputDir, const char* outputDir);
-int findEntryInSnapshot(int snapshotFile, const char* entryName);
+int findEntryInSnapshot(int snapshotFile, const char* entryPath);
 void formatPermissions(mode_t mode, char* perm);
 
 // Function to capture initial snapshot
@@ -70,7 +71,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         char perm[11];
         formatPermissions(metadata.permissions, perm);
         char buffer[1024];
-        int len = snprintf(buffer, sizeof(buffer), "Path: %s\n", metadata.path + strlen(inputDir) +1);
+        int len = snprintf(buffer, sizeof(buffer), "Path: %s\n", metadata.path + strlen(inputDir) + 1);
         write(snapshotFile, buffer, len);
         len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
         write(snapshotFile, buffer, len);
@@ -115,16 +116,18 @@ void monitorChanges(const char* directory, const char* inputDir, const char* out
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
+        // Get entry's full path
+        char entryPath[512];
+        snprintf(entryPath, sizeof(entryPath), "%s/%s", directory, entry->d_name);
+
         // Check if entry exists in Snapshot.txt
         // If not, it's a new file
-        char entryPath[512];
-        strcpy(entryPath, entry->d_name);
         if (!findEntryInSnapshot(snapshotFile, entryPath)) {
-            printf("New file: %s\n", entryPath +strlen(inputDir) +1);
+            printf("New file: %s\n", entryPath + strlen(inputDir) + 1);
             // Update Snapshot.txt
             char perm[11];
             struct stat st;
-            if(stat(entryPath, &st) == -1){
+            if (stat(entryPath, &st) == -1) {
                 perror("Unable to get file stats");
                 close(snapshotFile);
                 closedir(dir);
@@ -134,12 +137,11 @@ void monitorChanges(const char* directory, const char* inputDir, const char* out
             char buffer[1024];
             int len = snprintf(buffer, sizeof(buffer), "Path: %s\n", entryPath + strlen(inputDir) + 1);
             write(snapshotFile, buffer, len);
-            len = snprintf(buffer,sizeof(buffer), "Last Modified: %s", ctime(&st.st_mtime));
+            len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&st.st_mtime));
             write(snapshotFile, buffer, len);
             len = snprintf(buffer, sizeof(buffer), "Permissions: %s\n", perm);
             write(snapshotFile, buffer, len);
             write(snapshotFile, "\n", 1);
-           
         }
     }
 
@@ -158,7 +160,7 @@ int findEntryInSnapshot(int snapshotFile, const char* entryPath) {
         line[bytesRead] = '\0';
         char* token = strtok(line, "\n");
         while (token != NULL) {
-            if (strncmp(token, "Entry: ", 6) == 0 && strcmp(token + 6, entryPath) == 0)
+            if (strncmp(token, "Path: ", 6) == 0 && strcmp(token + 6, entryPath) == 0)
                 return 1; // Entry found
             token = strtok(NULL, "\n");
         }
@@ -167,7 +169,8 @@ int findEntryInSnapshot(int snapshotFile, const char* entryPath) {
     return 0; // Entry not found
 }
 
-void formatPermissions(mode_t mode, char* perm){
+// Function to format permissions
+void formatPermissions(mode_t mode, char* perm) {
     // Owner permissions
     perm[0] = (mode & S_IRUSR) ? 'r' : '-';
     perm[1] = (mode & S_IWUSR) ? 'w' : '-';
