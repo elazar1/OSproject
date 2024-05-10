@@ -14,6 +14,8 @@ typedef struct Node{
     struct Node* next;    
 } Node;
 
+int findEntryInSnapshot(int snapshotFile, const char* entryName);
+
 // Function to capture initial snapshot
 void captureSnapshot(const char* directory){
     // Open the directory
@@ -43,13 +45,10 @@ void captureSnapshot(const char* directory){
 
         write(snapshotFile, metadata.name, strlen(metadata.name));
         write(snapshotFile, "\n", 1);
-
-        closedir(dir);
-        close(snapshotFile);
-        
     }
 
-
+    closedir(dir);
+    close(snapshotFile);
 }
 
 void monitorChanges(const char* directory){
@@ -64,27 +63,29 @@ void monitorChanges(const char* directory){
     DIR* dir = opendir(directory);
     if(dir == NULL){
         perror("Unable to open directory");
-        fclose(snapshotFile);
+        close(snapshotFile);
         exit(EXIT_FAILURE);
     }
 
     struct dirent* entry;
+    char entryName[256];
     while((entry = readdir(dir)) != NULL){
         // Skip , and ..
         if(strcmp(entry->d_name, ".") == 0 || strcmp(entry -> d_name, "..") == 0)
             continue;
 
-    
-    char entryName[256];
-    strcpy(entryName, entry->d_name);
-    if(!findEntryInSnapshot(snapshotFile, entryName)){
-        printf("New file: %s\n", entryName);
-        // Update Snapshot.txt
-        write(snapshotFile, entryName, strlen(entryName));
-        write(snapshotFile, "\n", 1);
-        fsync(snapshotFile);
+        strcpy(entryName, entry->d_name);
+        if(!findEntryInSnapshot(snapshotFile, entryName)){
+            printf("New file: %s\n", entryName);
+            // Update Snapshot.txt
+            write(snapshotFile, entryName, strlen(entryName));
+            write(snapshotFile, "\n", 1);
+            fsync(snapshotFile);
         }
-    } 
+    }
+
+    closedir(dir);
+    close(snapshotFile);
 }
 
 // Helper function to find an entry in the snapshot file
@@ -105,9 +106,21 @@ int findEntryInSnapshot(int snapshotFile, const char* entryName) {
     return 0; // Entry not found
 }
 
-int main(int argc, char *argv[]){
-    if(argc != 2){
-        printf("Usage: %s <directory>\n", argv[0]);
+int main(int argc, char *argv[]) {
+    if (argc < 3 || argc > MAX_DIRECTORIES + 2) {
+        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
+        return 1;
+    }
+
+    char* outputDir = NULL;
+    int dirStartIndex = 2;
+
+    // Parse command-line arguments
+    if (strcmp(argv[1], "-o") == 0) {
+        outputDir = argv[2];
+        dirStartIndex = 3;
+    } else {
+        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
         return 1;
     }
 
@@ -117,6 +130,23 @@ int main(int argc, char *argv[]){
     captureSnapshot(directory);
 
     monitorChanges(directory);
+
+
+    // Check if output directory exists, create if not
+    struct stat st;
+    if (stat(outputDir, &st) == -1) {
+        printf("Output directory does not exist, creating...\n");
+        if (mkdir(outputDir, 0777) == -1) {
+            perror("Unable to create output directory");
+            return 1;
+        }
+    }
+
+    // Process each directory
+    for (int i = dirStartIndex; i < argc; ++i) {
+        captureSnapshot(argv[i], outputDir);
+        monitorChanges(argv[i], outputDir);
+    }
 
     return 0;
 }
