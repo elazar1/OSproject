@@ -6,7 +6,6 @@
 #include <fcntl.h>
 
 #define MAX_DIRECTORIES 10
-
 typedef struct {
     char name[256];
 } Metadata;
@@ -16,12 +15,10 @@ typedef struct Node{
     struct Node* next;    
 } Node;
 
-
-
 int findEntryInSnapshot(int snapshotFile, const char* entryName);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory, const char* outputDir){
+void captureSnapshot(const char* directory){
     // Open the directory
     DIR* dir = opendir(directory);
     if(dir == NULL){
@@ -30,8 +27,6 @@ void captureSnapshot(const char* directory, const char* outputDir){
     }
 
     // Create/open Snapshot.txt for writing in outputDir
-    char snapshotFilePath[512];
-    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt",outputDir);
     int snapshotFile = open("Snapshot.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if(snapshotFile == -1){
         perror("Unable to create/open Snapshot file");
@@ -39,7 +34,6 @@ void captureSnapshot(const char* directory, const char* outputDir){
         exit(EXIT_FAILURE);
     }
 
-    //Traverse directory
     struct dirent* entry;
     while((entry = readdir(dir))!=NULL){
         // Skip , and ..
@@ -49,18 +43,7 @@ void captureSnapshot(const char* directory, const char* outputDir){
         // Get metadata
         Metadata metadata;
         strcpy(metadata.name, entry->d_name);
-        //Get last modified time and permissions
-        char entryPath[512];
-        snprintf(entryPath, sizeof(entryPath), "%s/%s", directory, entry->d_name);
-        struct stat st;
-        if(stat(entryPath, &st) == -1){
-            perror("Unable to get file stats");
-            close(snapshotFile);
-            closedir(dir);
-            exit(EXIT_FAILURE);
-        }
 
-        
         write(snapshotFile, metadata.name, strlen(metadata.name));
         write(snapshotFile, "\n", 1);
     }
@@ -125,15 +108,37 @@ int findEntryInSnapshot(int snapshotFile, const char* entryName) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2 || argc > MAX_DIRECTORIES + 1) {
-        printf("Usage: %s <directory1> <directory2> ... <directoryN>\n", argv[0]);
+    if (argc < 3 || argc > MAX_DIRECTORIES + 2) {
+        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
         return 1;
     }
 
+    char* outputDir = NULL;
+    int dirStartIndex = 2;
+
+    // Parse command-line arguments
+    if (strcmp(argv[1], "-o") == 0) {
+        outputDir = argv[2];
+        dirStartIndex = 3;
+    } else {
+        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
+        return 1;
+    }
+
+    // Check if output directory exists, create if not
+    struct stat st;
+    if (stat(outputDir, &st) == -1) {
+        printf("Output directory does not exist, creating...\n");
+        if (mkdir(outputDir, 0777) == -1) {
+            perror("Unable to create output directory");
+            return 1;
+        }
+    }
+
     // Process each directory
-    for (int i = 1; i < argc; ++i) {
-        captureSnapshot(argv[i]);
-        monitorChanges(argv[i]);
+    for (int i = dirStartIndex; i < argc; ++i) {
+        captureSnapshot(argv[i], outputDir);
+        monitorChanges(argv[i], outputDir);
     }
 
     return 0;
