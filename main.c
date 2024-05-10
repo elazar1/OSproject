@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define MAX_DIRECTORIES 10
+
 typedef struct {
     char name[256];
 } Metadata;
@@ -14,10 +16,12 @@ typedef struct Node{
     struct Node* next;    
 } Node;
 
+
+
 int findEntryInSnapshot(int snapshotFile, const char* entryName);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory){
+void captureSnapshot(const char* directory, ){
     // Open the directory
     DIR* dir = opendir(directory);
     if(dir == NULL){
@@ -124,13 +128,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    char* directory = argv[1];
-
-
-    captureSnapshot(directory);
-
-    monitorChanges(directory);
-
+    
 
     // Check if output directory exists, create if not
     struct stat st;
