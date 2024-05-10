@@ -26,6 +26,26 @@ void captureSnapshot(const char* directory){
     int snapshotFile = open("Snapshot.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if(snapshotFile == -1){
         perror("Unable to create/open Snapshot file");
+        closedir(dir);
+        exit(EXIT_FAILURE);
+    }
+
+    struct dirent* entry;
+    while((entry = readdir(dir))!=NULL){
+        // Skip , and ..
+        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry -> d_name, "..") == 0)
+            continue;
+
+        // Get metadata
+        Metadata metadata;
+        strcpy(metadata.name, entry->d_name);
+
+        write(snapshotFile, metadata.name, strlen(metadata.name));
+        write(snapshotFile, "\n", 1);
+
+        closedir(dir);
+        close(snapshotFile);
+        
     }
 
 
