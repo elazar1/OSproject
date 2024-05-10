@@ -1,0 +1,3 @@
+file.txt
+subdir2
+subdir1

@@ -21,7 +21,7 @@ typedef struct Node{
 int findEntryInSnapshot(int snapshotFile, const char* entryName);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory, ){
+void captureSnapshot(const char* directory){
     // Open the directory
     DIR* dir = opendir(directory);
     if(dir == NULL){
