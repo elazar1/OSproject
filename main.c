@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <unistd.h>
 
 typedef struct {
     char name[256];
@@ -22,8 +23,11 @@ void captureSnapshot(const char* directory){
     }
 
     // Create/open Snapshot.txt for writing in outputDir
-    char snapshotFilePath[512];
-    
+    int snapshotFile = open("Snapshot.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if(snapshotFile == -1){
+        perror("Unable to create/open Snapshot file");
+    }
+
 
 }
 
