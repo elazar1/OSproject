@@ -71,7 +71,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         char perm[11];
         formatPermissions(metadata.permissions, perm);
         char buffer[1024];
-        int len = snprintf(buffer, sizeof(buffer), "Path: %s\n", metadata.path + strlen(inputDir) + 1);
+        int len = snprintf(buffer, sizeof(buffer), "Path: %s/%s\n", inputDir, metadata.path + strlen(directory) + 1);
         write(snapshotFile, buffer, len);
         len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
         write(snapshotFile, buffer, len);
@@ -123,7 +123,7 @@ void monitorChanges(const char* directory, const char* inputDir, const char* out
         // Check if entry exists in Snapshot.txt
         // If not, it's a new file
         if (!findEntryInSnapshot(snapshotFile, entryPath)) {
-            printf("New file: %s\n", entryPath + strlen(inputDir) + 1);
+            printf("New file: %s/%s\n", inputDir, entry->d_name);
             // Update Snapshot.txt
             char perm[11];
             struct stat st;
@@ -135,7 +135,7 @@ void monitorChanges(const char* directory, const char* inputDir, const char* out
             }
             formatPermissions(st.st_mode, perm);
             char buffer[1024];
-            int len = snprintf(buffer, sizeof(buffer), "Path: %s\n", entryPath + strlen(inputDir) + 1);
+            int len = snprintf(buffer, sizeof(buffer), "Path: %s/%s\n", inputDir, entry->d_name);
             write(snapshotFile, buffer, len);
             len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&st.st_mtime));
             write(snapshotFile, buffer, len);
