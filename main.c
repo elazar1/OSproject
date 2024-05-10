@@ -111,39 +111,15 @@ int findEntryInSnapshot(int snapshotFile, const char* entryName) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3 || argc > MAX_DIRECTORIES + 2) {
-        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
+    if (argc < 2 || argc > MAX_DIRECTORIES + 1) {
+        printf("Usage: %s <directory1> <directory2> ... <directoryN>\n", argv[0]);
         return 1;
-    }
-
-    char* outputDir = NULL;
-    int dirStartIndex = 2;
-
-    // Parse command-line arguments
-    if (strcmp(argv[1], "-o") == 0) {
-        outputDir = argv[2];
-        dirStartIndex = 3;
-    } else {
-        printf("Usage: %s -o <output_directory> <directory1> <directory2> ... <directoryN>\n", argv[0]);
-        return 1;
-    }
-
-    
-
-    // Check if output directory exists, create if not
-    struct stat st;
-    if (stat(outputDir, &st) == -1) {
-        printf("Output directory does not exist, creating...\n");
-        if (mkdir(outputDir, 0777) == -1) {
-            perror("Unable to create output directory");
-            return 1;
-        }
     }
 
     // Process each directory
-    for (int i = dirStartIndex; i < argc; ++i) {
-        captureSnapshot(argv[i], outputDir);
-        monitorChanges(argv[i], outputDir);
+    for (int i = 1; i < argc; ++i) {
+        captureSnapshot(argv[i]);
+        monitorChanges(argv[i]);
     }
 
     return 0;
