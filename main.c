@@ -110,5 +110,13 @@ int main(int argc, char *argv[]){
         printf("Usage: %s <directory>\n", argv[0]);
         return 1;
     }
+
+    char* directory = argv[1];
+
+
+    captureSnapshot(directory);
+
+    monitorChanges(directory);
+
     return 0;
 }
