@@ -1,104 +1,148 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <dirent.h>
-#include <unistd.h>
+#include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
 
 #define MAX_DIRECTORIES 10
+
+// Define structures for metadata and directory entry
+
 typedef struct {
-    char name[256];
+    char name[256]; // Name of file or directory
+    time_t last_modified; // Last modified timestamp
+    mode_t permissions; // File permissions
+    // Add other metadata fields as needed
 } Metadata;
 
-typedef struct Node{
-    Metadata data;
-    struct Node* next;    
-} Node;
-
+// Function prototypes
+void captureSnapshot(const char* directory, const char* outputDir);
+void monitorChanges(const char* directory, const char* outputDir);
 int findEntryInSnapshot(int snapshotFile, const char* entryName);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory){
+void captureSnapshot(const char* directory, const char* outputDir) {
     // Open the directory
     DIR* dir = opendir(directory);
-    if(dir == NULL){
-        perror("Unable to open the directory.");
+    if (dir == NULL) {
+        perror("Unable to open directory");
         exit(EXIT_FAILURE);
     }
 
     // Create/open Snapshot.txt for writing in outputDir
-    int snapshotFile = open("Snapshot.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if(snapshotFile == -1){
-        perror("Unable to create/open Snapshot file");
+    char snapshotFilePath[512];
+    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt", outputDir);
+    int snapshotFile = open(snapshotFilePath, O_WRONLY | O_APPEND | O_CREAT, 0644);
+    if (snapshotFile == -1) {
+        perror("Unable to create/open Snapshot.txt");
         closedir(dir);
         exit(EXIT_FAILURE);
     }
 
+    // Traverse directory
     struct dirent* entry;
-    while((entry = readdir(dir))!=NULL){
-        // Skip , and ..
-        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry -> d_name, "..") == 0)
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip . and ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
         // Get metadata
         Metadata metadata;
         strcpy(metadata.name, entry->d_name);
+        // Get last modified time and permissions
+        char entryPath[512];
+        snprintf(entryPath, sizeof(entryPath), "%s/%s", directory, entry->d_name);
+        struct stat st;
+        if (stat(entryPath, &st) == -1) {
+            perror("Unable to get file stats");
+            close(snapshotFile);
+            closedir(dir);
+            exit(EXIT_FAILURE);
+        }
+        metadata.last_modified = st.st_mtime;
+        metadata.permissions = st.st_mode;
 
-        write(snapshotFile, metadata.name, strlen(metadata.name));
+        // Write metadata to Snapshot.txt
+        char buffer[1024];
+        int len = snprintf(buffer, sizeof(buffer), "Entry: %s\n", metadata.name);
+        write(snapshotFile, buffer, len);
+        len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
+        write(snapshotFile, buffer, len);
+        len = snprintf(buffer, sizeof(buffer), "Permissions: %o\n", metadata.permissions);
+        write(snapshotFile, buffer, len);
         write(snapshotFile, "\n", 1);
+
+        // If entry is a directory, recursively capture snapshot
+        if (S_ISDIR(st.st_mode)) {
+            captureSnapshot(entryPath, outputDir);
+        }
     }
 
+    // Close directory and file
     closedir(dir);
     close(snapshotFile);
 }
 
-void monitorChanges(const char* directory){
-    // Open Snapshot.txt for reading
-
-    int snapshotFile = open("Snapshot.txt", O_RDWR);
-    if(snapshotFile == -1){
+// Function to monitor changes
+void monitorChanges(const char* directory, const char* outputDir) {
+    // Open Snapshot.txt for reading from outputDir
+    char snapshotFilePath[512];
+    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt", outputDir);
+    int snapshotFile = open(snapshotFilePath, O_RDONLY);
+    if (snapshotFile == -1) {
         perror("Unable to open Snapshot.txt");
         exit(EXIT_FAILURE);
     }
 
+    // Open the directory
     DIR* dir = opendir(directory);
-    if(dir == NULL){
+    if (dir == NULL) {
         perror("Unable to open directory");
         close(snapshotFile);
         exit(EXIT_FAILURE);
     }
 
+    // Traverse directory
     struct dirent* entry;
-    char entryName[256];
-    while((entry = readdir(dir)) != NULL){
-        // Skip , and ..
-        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry -> d_name, "..") == 0)
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip . and ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
+        // Check if entry exists in Snapshot.txt
+        // If not, it's a new file
+        char entryName[256];
         strcpy(entryName, entry->d_name);
-        if(!findEntryInSnapshot(snapshotFile, entryName)){
+        if (!findEntryInSnapshot(snapshotFile, entryName)) {
             printf("New file: %s\n", entryName);
             // Update Snapshot.txt
-            write(snapshotFile, entryName, strlen(entryName));
-            write(snapshotFile, "\n", 1);
-            fsync(snapshotFile);
+            char buffer[256];
+            int len = snprintf(buffer, sizeof(buffer), "Entry: %s\n", entryName);
+            write(snapshotFile, buffer, len);
+            // Add metadata for new file
         }
     }
 
+    // Close directory and file
     closedir(dir);
     close(snapshotFile);
 }
 
 // Helper function to find an entry in the snapshot file
 int findEntryInSnapshot(int snapshotFile, const char* entryName) {
-    lseek(snapshotFile, 0, SEEK_SET); // Move file pointer to the beginning
+    lseek(snapshotFile, 0, SEEK_SET); // Rewind to the beginning of the file
 
-    char buffer[256];
+    char line[256];
     ssize_t bytesRead;
-    while ((bytesRead = read(snapshotFile, buffer, sizeof(buffer))) > 0) {
-        char* token = strtok(buffer, "\n");
+    while ((bytesRead = read(snapshotFile, line, sizeof(line))) > 0) {
+        line[bytesRead] = '\0';
+        char* token = strtok(line, "\n");
         while (token != NULL) {
-            if (strcmp(token, entryName) == 0)
+            if (strncmp(token, "Entry: ", 7) == 0 && strcmp(token + 7, entryName) == 0)
                 return 1; // Entry found
             token = strtok(NULL, "\n");
         }
