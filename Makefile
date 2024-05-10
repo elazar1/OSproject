@@ -3,11 +3,11 @@ comp:
 
 test_one:
 	make comp
-	./ruleaza ../result ../dir1
+	./ruleaza -o ../result ../dir1
 		
 test_all:
 	make comp
-	./ruleaza ../result ../dir1 ../dir2 ../dir3 ../dir4 ../dir5 ../dir6 ../dir7 ../dir8 ../dir9
+	./ruleaza -o ../result ../dir1 ../dir2 ../dir3 ../dir4 ../dir5 ../dir6 ../dir7 ../dir8 ../dir9
 
 remove:
 	./script.sh r
