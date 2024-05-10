@@ -21,7 +21,7 @@ typedef struct Node{
 int findEntryInSnapshot(int snapshotFile, const char* entryName);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory){
+void captureSnapshot(const char* directory, const char* outputDir){
     // Open the directory
     DIR* dir = opendir(directory);
     if(dir == NULL){
@@ -30,6 +30,8 @@ void captureSnapshot(const char* directory){
     }
 
     // Create/open Snapshot.txt for writing in outputDir
+    char snapshotFilePath[512];
+    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt",outputDir);
     int snapshotFile = open("Snapshot.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if(snapshotFile == -1){
         perror("Unable to create/open Snapshot file");
@@ -37,6 +39,7 @@ void captureSnapshot(const char* directory){
         exit(EXIT_FAILURE);
     }
 
+    //Traverse directory
     struct dirent* entry;
     while((entry = readdir(dir))!=NULL){
         // Skip , and ..
@@ -46,7 +49,18 @@ void captureSnapshot(const char* directory){
         // Get metadata
         Metadata metadata;
         strcpy(metadata.name, entry->d_name);
+        //Get last modified time and permissions
+        char entryPath[512];
+        snprintf(entryPath, sizeof(entryPath), "%s/%s", directory, entry->d_name);
+        struct stat st;
+        if(stat(entryPath, &st) == -1){
+            perror("Unable to get file stats");
+            close(snapshotFile);
+            closedir(dir);
+            exit(EXIT_FAILURE);
+        }
 
+        
         write(snapshotFile, metadata.name, strlen(metadata.name));
         write(snapshotFile, "\n", 1);
     }
