@@ -54,7 +54,7 @@ void captureSnapshot(const char* directory){
 void monitorChanges(const char* directory){
     // Open Snapshot.txt for reading
 
-    int snapshotFile = open("Snapshot.txt", O_RDONLY);
+    int snapshotFile = open("Snapshot.txt", O_RDWR);
     if(snapshotFile == -1){
         perror("Unable to open Snapshot.txt");
         exit(EXIT_FAILURE);
@@ -65,6 +65,16 @@ void monitorChanges(const char* directory){
         perror("Unable to open directory");
         fclose(snapshotFile);
         exit(EXIT_FAILURE);
+    }
+
+    char entryName[256];
+    strcpy(entryName, entry->d_name);
+    if(!findEntryInSnapshot(snapshotFile, entryName)){
+        printf("New file: %s\n", entryName);
+        // Update Snapshot.txt
+        write(snapshotFile, entryName, strlen(entryName));
+        write(snapshotFile, "\n", 1);
+        fsync(snapshotFile);
     }
 
 }
