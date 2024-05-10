@@ -79,6 +79,24 @@ void monitorChanges(const char* directory){
 
 }
 
+// Helper function to find an entry in the snapshot file
+int findEntryInSnapshot(int snapshotFile, const char* entryName) {
+    lseek(snapshotFile, 0, SEEK_SET); // Move file pointer to the beginning
+
+    char buffer[256];
+    ssize_t bytesRead;
+    while ((bytesRead = read(snapshotFile, buffer, sizeof(buffer))) > 0) {
+        char* token = strtok(buffer, "\n");
+        while (token != NULL) {
+            if (strcmp(token, entryName) == 0)
+                return 1; // Entry found
+            token = strtok(NULL, "\n");
+        }
+    }
+
+    return 0; // Entry not found
+}
+
 int main(int argc, char *argv[]){
     if(argc != 2){
         printf("Usage: %s <directory>\n", argv[0]);
