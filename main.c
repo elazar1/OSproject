@@ -51,6 +51,23 @@ void captureSnapshot(const char* directory){
 
 }
 
+void monitorChanges(const char* directory){
+    // Open Snapshot.txt for reading
+
+    int snapshotFile = open("Snapshot.txt", O_RDONLY);
+    if(snapshotFile == -1){
+        perror("Unable to open Snapshot.txt");
+        exit(EXIT_FAILURE);
+    }
+
+    dir* dir = opendir(directory);
+    if(dir == NULL){
+        perror("Unable to open directory");
+        fclose(snapshotFile);
+        exit(EXIT_FAILURE);
+    }
+
+}
 
 int main(int argc, char *argv[]){
     if(argc != 2){
