@@ -20,7 +20,13 @@ refresh:
 	make remove
 	make create
 
-git_p:
+git_stat:
 	git fetch
 	git pull
 	git status
+
+m?=work_in_progress
+git_up :
+	git add .
+	git commit -m "$(m)"
+	git push
