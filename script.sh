@@ -7,13 +7,18 @@ do
         mkdir "../dir$i/subdir1"
         mkdir "../dir$i/subdir2"
         mkdir "../dir$i/subdir2/subdir1"
-        echo "t1" > "../dir$i/file.txt"
-        echo "t2" > "../dir$i/subdir1/file.txt"
-        echo "t3" > "../dir$i/subdir2/subdir1/file1.txt"
-        echo "t4" > "../dir$i/subdir2/file.txt"
-        echo "t5" > "../dir$i/subdir2/subdir1/file2.txt"
+        openssl rand 200 > "../dir$i/file.txt"
+        openssl rand 200 > "../dir$i/subdir1/file.txt"
+        openssl rand 200 > "../dir$i/subdir2/subdir1/file1.txt"
+        openssl rand 200 > "../dir$i/subdir2/file.txt"
+        openssl rand 200 > "../dir$i/subdir2/subdir1/file2.txt"
+    elif [ "$1" = "a" ]; then
+        openssl rand 200 >> "../dir$i/file.txt"
+        openssl rand 200 >> "../dir$i/subdir1/file.txt"
+        openssl rand 200 >> "../dir$i/subdir2/subdir1/file1.txt"
     elif [ "$1" = "r" ]; then
         rm -rf "../dir$i"
+    elif [ "$1" = "o" ]; then
         rm -rf "../result"
     else 
         echo "./script.sh c (create) / r (remove)";

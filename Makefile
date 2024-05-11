@@ -1,5 +1,6 @@
 comp:
-	make refresh
+	./script.sh o
+	./script.sh a
 	gcc -Wall -o ruleaza main.c
 
 test_one:
