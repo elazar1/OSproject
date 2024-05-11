@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <errno.h>
 
 #define MAX_DIRECTORIES 10
 
@@ -221,9 +222,13 @@ int main(int argc, char *argv[]) {
     }
 
     // Check if output directory exists, create if not
-    if (mkdir(outputDir, 0777) == -1) {
-        perror("Unable to create output directory");
+    if (mkdir(outputDir, S_IRWXU) == -1) {
+
+        if(errno != EEXIST){
+            perror("Unable to create output directory");
         return 1;
+        }
+        
     }
 
     // Process each directory
