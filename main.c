@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/wait.h>
 
 #define MAX_DIRECTORIES 10
 
@@ -229,9 +230,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    //Wait for all child processes to finish and print their status
     for (int i = dirStartIndex; i < argc; ++i) {
-        captureSnapshot(argv[i], argv[i], outputDir);
-        monitorChanges(argv[i], argv[i], outputDir);
+        int status;
+        pid_t pid = wait(&status);
+        if(pid != -1){
+            if(WIFEXITED(status)){
+                printf("Child process with PID %d terminated with exit code %d\n", pid, WEXITSTATUS(status));
+            } else if(WIFSIGNALED(status)){
+                printf("Child process with PID %d terminated by signal %d\n", pid, WTERMSIG(status));
+            }
+        }
     }
 
     return 0;
