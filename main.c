@@ -2,16 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <time.h>
-#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #define MAX_DIRECTORIES 10
-
-// Define structures for metadata and directory entry
 
 typedef struct {
     char name[256]; // Name of file or directory
@@ -22,12 +20,13 @@ typedef struct {
 } Metadata;
 
 // Function prototypes
-void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir);
+void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath);
 void monitorChanges(const char* directory, const char* inputDir, const char* outputDir);
 int findEntryInSnapshot(int snapshotFile, const char* entryPath);
 void formatPermissions(mode_t mode, char* perm);
 
-void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir) {
+// Function to capture initial snapshot
+void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath) {
     // Open the directory
     DIR* dir = opendir(directory);
     if (dir == NULL) {
@@ -35,26 +34,31 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         exit(EXIT_FAILURE);
     }
 
-    // Sanitize directory name for snapshot file
-    char sanitizedDirName[512];
-    strcpy(sanitizedDirName, directory);
-    char* p = sanitizedDirName;
-    while (*p) {
+     
+
+    // Create directory-specific Snapshot file
+    char newSnapshotFilePath[512];
+    if(strcmp(snapshotFilePath, "\0")) {
+        strcpy(newSnapshotFilePath, snapshotFilePath);
+    } else {
+        char sanitizedDirName[512];
+        strcpy(sanitizedDirName, directory);
+        char* p = sanitizedDirName;
+        while (*p) {
         if (*p == '.' || *p == '/') {
             *p = '_'; // Replace dot and backslash with underscore
         }
         p++;
     }
-
-    // Create directory-specific Snapshot file
-    char snapshotFilePath[512];
-    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot_%s.txt", outputDir, sanitizedDirName);
-    int snapshotFile = open(snapshotFilePath, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        snprintf(newSnapshotFilePath, sizeof(newSnapshotFilePath) + sizeof(sanitizedDirName), "%s/Snapshot_%s.txt", outputDir, sanitizedDirName);
+    }
+    int snapshotFile = open(newSnapshotFilePath, O_WRONLY | O_APPEND | O_CREAT, 0777);
     if (snapshotFile == -1) {
         perror("Unable to create/open Snapshot file");
         closedir(dir);
         exit(EXIT_FAILURE);
     }
+
     // Traverse directory
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
@@ -66,6 +70,8 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         Metadata metadata;
         strcpy(metadata.name, entry->d_name);
         snprintf(metadata.path, sizeof(metadata.path), "%s/%s", directory, entry->d_name);
+        printf("%s\n", metadata.name);
+        printf("%s\n", metadata.path);
         // Get last modified time and permissions
         struct stat st;
         if (stat(metadata.path, &st) == -1) {
@@ -81,7 +87,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         char perm[11];
         formatPermissions(metadata.permissions, perm);
         char buffer[1024];
-        int len = snprintf(buffer, sizeof(buffer), "Path: %s/%s\n", inputDir, metadata.path + strlen(directory) + 1);
+        int len = snprintf(buffer, sizeof(metadata.path), "Path: %s\n", metadata.path);
         write(snapshotFile, buffer, len);
         len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
         write(snapshotFile, buffer, len);
@@ -91,7 +97,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
 
         // If entry is a directory, recursively capture snapshot
         if (S_ISDIR(st.st_mode)) {
-            captureSnapshot(metadata.path, inputDir, outputDir);
+            captureSnapshot(metadata.path, inputDir, outputDir, newSnapshotFilePath);
         }
     }
 
@@ -215,38 +221,34 @@ int main(int argc, char *argv[]) {
     }
 
     // Check if output directory exists, create if not
-    struct stat st;
-    if (stat(outputDir, &st) == -1) {
-        printf("Output directory does not exist, creating...\n");
-        if (mkdir(outputDir, 0777) == -1) {
-            perror("Unable to create output directory");
-            return 1;
-        }
+    if (mkdir(outputDir, 0777) == -1) {
+        perror("Unable to create output directory");
+        return 1;
     }
 
     // Process each directory
-    for(int i = dirStartIndex; i < argc; ++i){
+    for (int i = dirStartIndex; i < argc; ++i) {
         pid_t pid = fork();
-        if(pid == -1){
+        if (pid == -1) {
             perror("fork failed");
             return 1;
-        } 
-    // Child process
-        
-        else if(pid == 0){
-            captureSnapshot(argv[i], argv[i], outputDir);
+        }   
+        // Child process
+        else if (pid == 0) { 
+            const char aux[512] = "\0";
+            captureSnapshot(argv[i], argv[i], outputDir, aux);
             exit(0);
         }
     }
 
-    //Wait for all child processes to finish and print their status
+    // Wait for all child processes to finish and print their status
     for (int i = dirStartIndex; i < argc; ++i) {
         int status;
         pid_t pid = wait(&status);
-        if(pid != -1){
-            if(WIFEXITED(status)){
+        if (pid != -1) {
+            if (WIFEXITED(status)) {
                 printf("Child process with PID %d terminated with exit code %d\n", pid, WEXITSTATUS(status));
-            } else if(WIFSIGNALED(status)){
+            } else if (WIFSIGNALED(status)) {
                 printf("Child process with PID %d terminated by signal %d\n", pid, WTERMSIG(status));
             }
         }
