@@ -27,7 +27,6 @@ void monitorChanges(const char* directory, const char* inputDir, const char* out
 int findEntryInSnapshot(int snapshotFile, const char* entryPath);
 void formatPermissions(mode_t mode, char* perm);
 
-// Function to capture initial snapshot
 void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir) {
     // Open the directory
     DIR* dir = opendir(directory);
@@ -36,16 +35,26 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         exit(EXIT_FAILURE);
     }
 
+    // Sanitize directory name for snapshot file
+    char sanitizedDirName[512];
+    strcpy(sanitizedDirName, directory);
+    char* p = sanitizedDirName;
+    while (*p) {
+        if (*p == '.' || *p == '/') {
+            *p = '_'; // Replace dot and backslash with underscore
+        }
+        p++;
+    }
+
     // Create directory-specific Snapshot file
     char snapshotFilePath[512];
-    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot_%s.txt", outputDir, directory);
+    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot_%s.txt", outputDir, sanitizedDirName);
     int snapshotFile = open(snapshotFilePath, O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (snapshotFile == -1) {
         perror("Unable to create/open Snapshot file");
         closedir(dir);
         exit(EXIT_FAILURE);
     }
-
     // Traverse directory
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
