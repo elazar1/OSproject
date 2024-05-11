@@ -14,10 +14,9 @@ do
         echo "t5" > "../dir$i/subdir2/subdir1/file2.txt"
     elif [ "$1" = "r" ]; then
         rm -rf "../dir$i"
-        rm -rf "../target"
-        rm -rf "../odir"
+        rm -rf "../result"
     else 
-        echo "./setup.sh c (create) / r (remove)";
+        echo "./script.sh c (create) / r (remove)";
         exit 1
     fi
 done

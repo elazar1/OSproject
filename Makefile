@@ -1,4 +1,5 @@
 comp:
+	make refresh
 	gcc -Wall -o ruleaza main.c
 
 test_one:
@@ -16,7 +17,6 @@ create:
 	./script.sh c
 
 refresh:
-	make comp
 	make remove
 	make create
 
