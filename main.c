@@ -36,12 +36,12 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         exit(EXIT_FAILURE);
     }
 
-    // Create/open Snapshot.txt for writing in outputDir
+    // Create directory-specific Snapshot file
     char snapshotFilePath[512];
-    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt", outputDir);
+    snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot_%s.txt", outputDir, directory);
     int snapshotFile = open(snapshotFilePath, O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (snapshotFile == -1) {
-        perror("Unable to create/open Snapshot.txt");
+        perror("Unable to create/open Snapshot file");
         closedir(dir);
         exit(EXIT_FAILURE);
     }
@@ -68,7 +68,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         metadata.last_modified = st.st_mtime;
         metadata.permissions = st.st_mode;
 
-        // Write metadata to Snapshot.txt
+        // Write metadata to Snapshot file
         char perm[11];
         formatPermissions(metadata.permissions, perm);
         char buffer[1024];
