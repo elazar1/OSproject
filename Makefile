@@ -19,3 +19,8 @@ refresh:
 	make comp
 	make remove
 	make create
+
+git_p:
+	git fetch
+	git pull
+	git status
