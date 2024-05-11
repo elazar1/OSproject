@@ -21,13 +21,14 @@ typedef struct {
 } Metadata;
 
 // Function prototypes
-void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath);
+void captureSnapshot(const char* maldir, const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath);
 void monitorChanges(const char* directory, const char* inputDir, const char* outputDir);
 int findEntryInSnapshot(int snapshotFile, const char* entryPath);
 void formatPermissions(mode_t mode, char* perm);
 
 // Function to capture initial snapshot
-void captureSnapshot(const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath) {
+void captureSnapshot(const char* maldir, const char* directory, const char* inputDir, const char* outputDir, const char* snapshotFilePath) {
+
     // Open the directory
     DIR* dir = opendir(directory);
     if (dir == NULL) {
@@ -35,7 +36,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         exit(EXIT_FAILURE);
     }
 
-     
+    
 
     // Create directory-specific Snapshot file
     char newSnapshotFilePath[512];
@@ -67,6 +68,7 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
+
         // Get metadata
         Metadata metadata;
         strcpy(metadata.name, entry->d_name);
@@ -74,32 +76,68 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
         printf("%s\n", metadata.name);
         printf("%s\n", metadata.path);
         // Get last modified time and permissions
-        struct stat st;
-        if (stat(metadata.path, &st) == -1) {
-            perror("Unable to get file stats");
-            close(snapshotFile);
-            closedir(dir);
+            struct stat st;
+            if (stat(metadata.path, &st) == -1) {
+                perror("Unable to get file stats");
+                close(snapshotFile);
+                closedir(dir);
+                exit(EXIT_FAILURE);
+            }
+
+        pid_t pid = fork();
+        if (pid == -1) {
+            perror("fork failed");
             exit(EXIT_FAILURE);
-        }
-        metadata.last_modified = st.st_mtime;
-        metadata.permissions = st.st_mode;
+        }   
 
-        // Write metadata to Snapshot file
-        char perm[11];
-        formatPermissions(metadata.permissions, perm);
-        char buffer[1024];
-        int len = snprintf(buffer, sizeof(metadata.path), "Path: %s\n", metadata.path);
-        write(snapshotFile, buffer, len);
-        len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
-        write(snapshotFile, buffer, len);
-        len = snprintf(buffer, sizeof(buffer), "Permissions: %s\n", perm);
-        write(snapshotFile, buffer, len);
-        write(snapshotFile, "\n", 1);
 
-        // If entry is a directory, recursively capture snapshot
-        if (S_ISDIR(st.st_mode)) {
-            captureSnapshot(metadata.path, inputDir, outputDir, newSnapshotFilePath);
-        }
+        // Child process
+        else if (pid == 0 && !S_ISDIR(st.st_mode)) { 
+            // Execute the bash script with the file to be snapshot and the directory
+            char script[150] = "./analyze.sh";
+            
+                 
+
+            execl(script, script, metadata.path, maldir, NULL);
+            
+            // If execl fails
+            perror("execl failed");
+            exit(EXIT_FAILURE);
+        } else {
+        
+
+            int status;
+            pid_t vpid = wait(&status);
+            if (vpid != -1) {
+                if (WIFEXITED(status)) {
+                    printf("Child process with PID %d terminated with exit code %d\n", pid, WEXITSTATUS(status));
+                } else if (WIFSIGNALED(status)) {
+                    printf("Child process with PID %d terminated by signal %d\n", pid, WTERMSIG(status));
+                }
+            }
+            
+            
+        
+            metadata.last_modified = st.st_mtime;
+            metadata.permissions = st.st_mode;
+
+            // Write metadata to Snapshot file
+            char perm[11];
+            formatPermissions(metadata.permissions, perm);
+            char buffer[1024];
+            int len = snprintf(buffer, sizeof(metadata.path), "Path: %s\n", metadata.path);
+            write(snapshotFile, buffer, len);
+            len = snprintf(buffer, sizeof(buffer), "Last Modified: %s", ctime(&metadata.last_modified));
+            write(snapshotFile, buffer, len);
+            len = snprintf(buffer, sizeof(buffer), "Permissions: %s\n", perm);
+            write(snapshotFile, buffer, len);
+            write(snapshotFile, "\n", 1);
+            
+            // If entry is a directory, recursively capture snapshot
+            if (S_ISDIR(st.st_mode)) {
+                captureSnapshot(maldir, metadata.path, inputDir, outputDir, newSnapshotFilePath);
+            }
+        }    
     }
 
     // Close directory and file
@@ -107,8 +145,11 @@ void captureSnapshot(const char* directory, const char* inputDir, const char* ou
     close(snapshotFile);
 }
 
+
 // Function to monitor changes
 void monitorChanges(const char* directory, const char* inputDir, const char* outputDir) {
+    
+    
     // Open Snapshot.txt for reading from outputDir
     char snapshotFilePath[512];
     snprintf(snapshotFilePath, sizeof(snapshotFilePath), "%s/Snapshot.txt", outputDir);
@@ -211,7 +252,7 @@ int main(int argc, char *argv[]) {
 
     char* outputDir = NULL;
     int dirStartIndex = 2;
-
+    const char malwareDir[20] = "./quarantine";
     // Parse command-line arguments
     if (strcmp(argv[1], "-o") == 0) {
         outputDir = argv[2];
@@ -241,7 +282,7 @@ int main(int argc, char *argv[]) {
         // Child process
         else if (pid == 0) { 
             const char aux[512] = "\0";
-            captureSnapshot(argv[i], argv[i], outputDir, aux);
+            captureSnapshot(malwareDir, argv[i], argv[i], outputDir, aux);
             exit(0);
         }
     }

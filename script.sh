@@ -7,11 +7,15 @@ do
         mkdir "../dir$i/subdir1"
         mkdir "../dir$i/subdir2"
         mkdir "../dir$i/subdir2/subdir1"
+        mkdir "../dir$i/subdir3"
         openssl rand 200 > "../dir$i/file.txt"
         openssl rand 200 > "../dir$i/subdir1/file.txt"
         openssl rand 200 > "../dir$i/subdir2/subdir1/file1.txt"
         openssl rand 200 > "../dir$i/subdir2/file.txt"
         openssl rand 200 > "../dir$i/subdir2/subdir1/file2.txt"
+
+        echo "risk" >> "../dir$i/subdir3/file.txt"
+        
     elif [ "$1" = "a" ]; then
         openssl rand 200 >> "../dir$i/file.txt"
         openssl rand 200 >> "../dir$i/subdir1/file.txt"
