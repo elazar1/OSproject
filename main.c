@@ -215,6 +215,20 @@ int main(int argc, char *argv[]) {
     }
 
     // Process each directory
+    for(int i = dirStartIndex; i < argc; ++i){
+        pid_t pid = fork();
+        if(pid == -1){
+            perror("fork failed");
+            return 1;
+        } 
+    // Child process
+        
+        else if(pid == 0){
+            captureSnapshot(argv[i], argv[i], outputDir);
+            exit(0);
+        }
+    }
+
     for (int i = dirStartIndex; i < argc; ++i) {
         captureSnapshot(argv[i], argv[i], outputDir);
         monitorChanges(argv[i], argv[i], outputDir);
